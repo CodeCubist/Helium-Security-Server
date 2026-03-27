@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>激活码管理</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>激活码管理</h1>
+        </div>
+    
+    <div class="sidebar">
+        <ul>
+            <li><a th:href="@{/server}" th:classappend="${#httpServletRequest.requestURI.contains('/server') and not #httpServletRequest.requestURI.contains('/users') and not #httpServletRequest.requestURI.contains('/tokens') and not #httpServletRequest.requestURI.contains('/activation-codes') and not #httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">首页</a></li>
+            <li><a th:href="@{/server/users}" th:classappend="${#httpServletRequest.requestURI.contains('/users')} ? 'active' : ''">用户管理</a></li>
+            <li><a th:href="@{/server/tokens}" th:classappend="${#httpServletRequest.requestURI.contains('/tokens')} ? 'active' : ''">令牌管理</a></li>
+            <li><a th:href="@{/server/activation-codes}" th:classappend="${#httpServletRequest.requestURI.contains('/activation-codes')} ? 'active' : ''">激活码管理</a></li>
+            <li><a th:href="@{/server/logs}" th:classappend="${#httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">查看日志</a></li>
+            <li><a th:href="@{/server/lua-script}" th:classappend="${#httpServletRequest.requestURI.contains('/lua-script')} ? 'active' : ''">Lua脚本编辑器</a></li>
+        </ul>
+    </div>
+    
+    <div class="content">
+            <h2>激活码列表</h2>
+            
+            <div class="generate-form">
+                <form th:action="@{/server/activation-codes/generate}" method="post">
+                    <div class="form-group">
+                        <label for="tokenId">关联令牌</label>
+                        <select id="tokenId" name="tokenId" required>
+                            <option value="" disabled selected>请选择令牌</option>
+                            <option th:each="token : ${tokens}" th:value="${token.id}" th:text="${token.name + ' (' + token.id + ')'}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="count">生成数量</label>
+                        <input type="number" id="count" name="count" min="1" max="1000" value="10" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">生成激活码</button>
+                </form>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>激活码</th>
+                        <th>关联令牌</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>使用时间</th>
+                        <th>使用用户</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="code : ${activationCodes}">
+                        <td th:text="${code.code}"></td>
+                        <td th:text="${code.tokenId}"></td>
+                        <td>
+                            <span th:classappend="${code.used} ? 'status-used' : 'status-unused'">
+                                <th:block th:text="${code.used} ? '已使用' : '未使用'"/>
+                            </span>
+                        </td>
+                        <td th:text="${code.createdAtFormatted}"></td>
+                        <td th:if="${code.used}" th:text="${code.usedAtFormatted}"></td>
+                        <td th:unless="${code.used}">-</td>
+                        <td th:text="${code.usedBy}"></td>
+                        <td>
+                            <form th:action="@{/server/activation-codes/delete}" method="post" style="display:inline;">
+                                <input type="hidden" name="code" th:value="${code.code}">
+                                <button type="submit" class="btn btn-danger" th:disabled="${code.used}">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${activationCodes.isEmpty()}">
+                        <td colspan="7" class="no-data">暂无激活码数据</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

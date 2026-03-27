@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>管理中心</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="header">
+    <div class="container">
+        <h1>管理中心</h1>
+    </div>
+</div>
+
+<div class="sidebar">
+    <ul>
+        <li><a th:href="@{/server}" th:classappend="${#httpServletRequest.requestURI.contains('/server') and not #httpServletRequest.requestURI.contains('/users') and not #httpServletRequest.requestURI.contains('/tokens') and not #httpServletRequest.requestURI.contains('/activation-codes') and not #httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">首页</a></li>
+        <li><a th:href="@{/server/users}" th:classappend="${#httpServletRequest.requestURI.contains('/users')} ? 'active' : ''">用户管理</a></li>
+        <li><a th:href="@{/server/tokens}" th:classappend="${#httpServletRequest.requestURI.contains('/tokens')} ? 'active' : ''">令牌管理</a></li>
+        <li><a th:href="@{/server/activation-codes}" th:classappend="${#httpServletRequest.requestURI.contains('/activation-codes')} ? 'active' : ''">激活码管理</a></li>
+        <li><a th:href="@{/server/logs}" th:classappend="${#httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">查看日志</a></li>
+        <li><a th:href="@{/server/lua-script}" th:classappend="${#httpServletRequest.requestURI.contains('/lua-script')} ? 'active' : ''">Lua脚本编辑器</a></li>
+    </ul>
+</div>
+
+<div class="content">
+    <div class="status-cards">
+        <div class="status-card">
+            <h3>服务器状态</h3>
+            <div class="status-value" th:classappend="${isServerRunning} ? 'status-running' : 'status-stopped'">
+                <th:block th:text="${isServerRunning} ? '运行中' : '已停止'"/>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>网站状态</h3>
+            <div class="status-value status-running">运行中</div>
+        </div>
+
+        <div class="status-card">
+            <h3>网站端口</h3>
+            <div class="status-value" th:text="${webPort}">443</div>
+        </div>
+
+        <div class="status-card">
+            <h3>内存使用率</h3>
+            <div class="status-value" id="memoryUsage">0%</div>
+        </div>
+
+        <div class="status-card">
+            <h3>线程数</h3>
+            <div class="status-value" id="threadCount">0</div>
+        </div>
+
+        <div class="status-card">
+            <h3>在线用户</h3>
+            <div class="status-value" id="onlineUsers">0</div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <h2>服务器控制</h2>
+        <form th:action="@{/server/start}" method="post" style="display: inline-block;">
+            <button type="submit" class="btn btn-start" th:disabled="${isServerRunning}">
+                启动服务器
+            </button>
+        </form>
+
+        <form th:action="@{/server/stop}" method="post" style="display: inline-block;">
+            <button type="submit" class="btn btn-stop" th:disabled="${!isServerRunning}">
+                停止服务器
+            </button>
+        </form>
+    </div>
+
+    <div class="performance-monitor">
+        <h2>性能监控</h2>
+        <div class="chart-container">
+            <canvas id="performanceChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    let performanceData = {
+        labels: [],
+        memory: [],
+        users: []
+    };
+
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    const performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: performanceData.labels,
+            datasets: [
+                {
+                    label: '内存使用率 (%)',
+                    data: performanceData.memory,
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: '在线用户',
+                    data: performanceData.users,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: '服务器性能监控'
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: '内存使用率 (%)'
+                    },
+                    beginAtZero: true,
+                    max: 100
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: '在线用户数'
+                    },
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+
+    function updatePerformanceData() {
+        fetch('/server/performance')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('memoryUsage').textContent = data.memoryUsage + '%';
+                document.getElementById('threadCount').textContent = data.threadCount;
+                document.getElementById('onlineUsers').textContent = data.onlineUsers;
+
+                const now = new Date();
+                const timeLabel = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+
+                performanceData.labels.push(timeLabel);
+                performanceData.memory.push(data.memoryUsage);
+                performanceData.users.push(data.onlineUsers);
+
+                if (performanceData.labels.length > 20) {
+                    performanceData.labels.shift();
+                    performanceData.memory.shift();
+                    performanceData.users.shift();
+                }
+
+                performanceChart.update();
+            })
+            .catch(error => {
+                console.error('获取性能数据失败:', error);
+            });
+    }
+
+    setInterval(updatePerformanceData, 3000);
+
+    updatePerformanceData();
+</script>
+</body>
+</html>

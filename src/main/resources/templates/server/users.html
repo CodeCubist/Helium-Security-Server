@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>用户管理</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>用户管理</h1>
+        </div>
+    
+    <div class="sidebar">
+        <ul>
+            <li><a th:href="@{/server}" th:classappend="${#httpServletRequest.requestURI.contains('/server') and not #httpServletRequest.requestURI.contains('/users') and not #httpServletRequest.requestURI.contains('/tokens') and not #httpServletRequest.requestURI.contains('/activation-codes') and not #httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">首页</a></li>
+            <li><a th:href="@{/server/users}" th:classappend="${#httpServletRequest.requestURI.contains('/users')} ? 'active' : ''">用户管理</a></li>
+            <li><a th:href="@{/server/tokens}" th:classappend="${#httpServletRequest.requestURI.contains('/tokens')} ? 'active' : ''">令牌管理</a></li>
+            <li><a th:href="@{/server/activation-codes}" th:classappend="${#httpServletRequest.requestURI.contains('/activation-codes')} ? 'active' : ''">激活码管理</a></li>
+            <li><a th:href="@{/server/logs}" th:classappend="${#httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">查看日志</a></li>
+            <li><a th:href="@{/server/lua-script}" th:classappend="${#httpServletRequest.requestURI.contains('/lua-script')} ? 'active' : ''">Lua脚本编辑器</a></li>
+        </ul>
+    </div>
+    
+    <div class="content">
+            <h2>用户列表</h2>
+            <th:block th:if="${currentUser != null && currentUser.authorities.![authority].contains('ROLE_ADMIN')}">
+                <div class="add-form" style="margin-bottom: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 4px;">
+                    <h3>创建用户</h3>
+                    <form th:action="@{/server/users/create-web-admin}" method="post">
+                        <div class="form-group" style="display: inline-block; margin-right: 15px; margin-bottom: 10px;">
+                            <label for="username">用户名</label>
+                            <input type="text" id="username" name="username" required>
+                        </div>
+
+                        <div class="form-group" style="display: inline-block; margin-right: 15px; margin-bottom: 10px;">
+                            <label for="hwid">HWID</label>
+                            <input type="text" id="hwid" name="hwid" required>
+                        </div>
+                        <div class="form-group" style="display: inline-block; margin-right: 15px; margin-bottom: 10px;">
+                            <label for="password">密码</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">创建</button>
+                    </form>
+                </div>
+            </th:block>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>HWID</th>
+                        <th>当前参数</th>
+                        <th>令牌代码</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="user : ${users}">
+                        <td th:text="${user.username}"></td>
+                        <td th:text="${user.email}"></td>
+                        <td th:text="${user.hwid}"></td>
+                        <td th:text="${user.currentParam}"></td>
+                        <td th:text="${user.tokenCode}"></td>
+                        <td>
+                            <form th:action="@{/server/users/delete}" method="post" style="display:inline;">
+                                <input type="hidden" name="username" th:value="${user.username}">
+                                <button type="submit" class="btn btn-danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${users.isEmpty()}">
+                        <td colspan="6" class="no-data">暂无用户数据</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

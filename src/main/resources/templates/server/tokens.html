@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>令牌管理</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>令牌管理</h1>
+        </div>
+    
+    <div class="sidebar">
+        <ul>
+            <li><a th:href="@{/server}" th:classappend="${#httpServletRequest.requestURI.contains('/server') and not #httpServletRequest.requestURI.contains('/users') and not #httpServletRequest.requestURI.contains('/tokens') and not #httpServletRequest.requestURI.contains('/activation-codes') and not #httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">首页</a></li>
+            <li><a th:href="@{/server/users}" th:classappend="${#httpServletRequest.requestURI.contains('/users')} ? 'active' : ''">用户管理</a></li>
+            <li><a th:href="@{/server/tokens}" th:classappend="${#httpServletRequest.requestURI.contains('/tokens')} ? 'active' : ''">令牌管理</a></li>
+            <li><a th:href="@{/server/activation-codes}" th:classappend="${#httpServletRequest.requestURI.contains('/activation-codes')} ? 'active' : ''">激活码管理</a></li>
+            <li><a th:href="@{/server/logs}" th:classappend="${#httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">查看日志</a></li>
+            <li><a th:href="@{/server/lua-script}" th:classappend="${#httpServletRequest.requestURI.contains('/lua-script')} ? 'active' : ''">Lua脚本编辑器</a></li>
+        </ul>
+    </div>
+    
+    <div class="content">
+            <h2>令牌列表</h2>
+            
+            <div class="add-form">
+                <form th:action="@{/server/tokens/add}" method="post">
+                    <div class="form-group">
+                        <label for="tokenName">令牌名称</label>
+                        <input type="text" id="tokenName" name="tokenName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tokenDesc">令牌描述</label>
+                        <input type="text" id="tokenDesc" name="tokenDesc">
+                    </div>
+                    <button type="submit" class="btn btn-primary">添加令牌</button>
+                </form>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>令牌ID</th>
+                        <th>名称</th>
+                        <th>描述</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="token : ${tokens}">
+                        <td th:text="${token.id}"></td>
+                        <td th:text="${token.name}"></td>
+                        <td th:text="${token.description}"></td>
+                        <td th:text="${token.createdAtFormatted}"></td>
+                        <td>
+                            <form th:action="@{/server/tokens/delete}" method="post" style="display:inline;">
+                                <input type="hidden" name="tokenId" th:value="${token.id}">
+                                <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr th:if="${tokens.isEmpty()}">
+                        <td colspan="5" class="no-data">暂无令牌数据</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

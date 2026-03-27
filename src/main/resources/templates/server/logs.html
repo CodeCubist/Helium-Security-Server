@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>日志查看</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>日志查看</h1>
+        </div>
+    
+    <div class="sidebar">
+        <ul>
+            <li><a th:href="@{/server}" th:classappend="${#httpServletRequest.requestURI.contains('/server') and not #httpServletRequest.requestURI.contains('/users') and not #httpServletRequest.requestURI.contains('/tokens') and not #httpServletRequest.requestURI.contains('/activation-codes') and not #httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">首页</a></li>
+            <li><a th:href="@{/server/users}" th:classappend="${#httpServletRequest.requestURI.contains('/users')} ? 'active' : ''">用户管理</a></li>
+            <li><a th:href="@{/server/tokens}" th:classappend="${#httpServletRequest.requestURI.contains('/tokens')} ? 'active' : ''">令牌管理</a></li>
+            <li><a th:href="@{/server/activation-codes}" th:classappend="${#httpServletRequest.requestURI.contains('/activation-codes')} ? 'active' : ''">激活码管理</a></li>
+            <li><a th:href="@{/server/logs}" th:classappend="${#httpServletRequest.requestURI.contains('/logs')} ? 'active' : ''">查看日志</a></li>
+            <li><a th:href="@{/server/lua-script}" th:classappend="${#httpServletRequest.requestURI.contains('/lua-script')} ? 'active' : ''">Lua脚本编辑器</a></li>
+        </ul>
+    </div>
+    
+    <div class="content">
+            <h2>系统日志</h2>
+            
+            <div class="filter-form">
+                <div class="clearfix">
+                    <form th:action="@{/server/logs}" method="get">
+                        <div class="form-group">
+                            <label for="logLevel">日志级别</label>
+                            <select id="logLevel" name="logLevel">
+                                <option value="">全部</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="DEBUG">DEBUG</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="keyword">关键词</label>
+                            <input type="text" id="keyword" name="keyword" placeholder="输入关键词搜索">
+                        </div>
+                        <button type="submit" class="btn btn-primary">搜索</button>
+                    </form>
+                    <a href="@{/server/logs}" class="btn btn-secondary">清空筛选</a>
+                </div>
+            </div>
+            
+            <div class="logs-container">
+                <div th:each="log : ${logs}" class="log-line">
+                    <span class="log-time" th:text="${log.time}"></span>
+                    <span th:class="'log-' + ${log.level.toLowerCase()}" th:text="${log.message}"></span>
+                </div>
+                <div th:if="${logs.isEmpty()}" style="text-align: center; color: #6c757d; padding: 20px;">
+                    暂无日志记录
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

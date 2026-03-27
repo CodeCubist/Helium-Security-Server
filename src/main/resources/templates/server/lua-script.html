@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Lua脚本编辑器</title>
+    <link rel="stylesheet" th:href="@{/static/css/style.css}">
+    <!-- 代码编辑器样式 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/matchesonscrollbar.min.css">
+
+    <style>
+        .editor-container {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .editor-toolbar {
+            background: #f5f5f5;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-status {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .CodeMirror {
+            height: 500px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .file-info-item {
+            margin: 5px 0;
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            border-radius: 4px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+
+        .upload-area.dragover {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="container">
+        <h1>Lua脚本编辑器</h1>
+    </div>
+</div>
+
+<div class="sidebar">
+    <ul>
+        <li><a th:href="@{/server}">首页</a></li>
+        <li><a th:href="@{/server/users}">用户管理</a></li>
+        <li><a th:href="@{/server/tokens}">令牌管理</a></li>
+        <li><a th:href="@{/server/activation-codes}">激活码管理</a></li>
+        <li><a th:href="@{/server/logs}">查看日志</a></li>
+        <li><a th:href="@{/server/lua-script}" class="active">Lua脚本编辑器</a></li>
+    </ul>
+</div>
+
+<div class="content">
+    <div class="file-info">
+        <h3>文件信息</h3>
+        <div class="file-info-item">
+            <strong>文件名:</strong> <span th:text="${scriptName}">script.lua</span>
+        </div>
+        <div class="file-info-item">
+            <strong>路径:</strong> <span th:text="${scriptPath}"></span>
+        </div>
+        <div class="file-info-item">
+            <strong>状态:</strong>
+            <span th:if="${fileExists}" style="color: green;">✓ 文件存在</span>
+            <span th:unless="${fileExists}" style="color: red;">✗ 文件不存在</span>
+        </div>
+        <div th:if="${fileExists}" class="file-info-item">
+            <strong>大小:</strong> <span th:text="${#numbers.formatDecimal(fileSize/1024, 1, 2)} + ' KB'">0 KB</span>
+        </div>
+        <div th:if="${fileExists}" class="file-info-item">
+            <span th:if="${lastModified != null}" th:text="${#dates.format(lastModified, 'yyyy-MM-dd HH:mm:ss')}"></span>
+            <span th:if="${lastModified == null}">-</span>
+        </div>
+    </div>
+
+    <div id="messageArea"></div>
+
+    <div class="editor-container">
+        <div class="editor-toolbar">
+            <div class="btn-group">
+                <button id="saveBtn" class="btn btn-primary">保存</button>
+                <button id="reloadBtn" class="btn btn-secondary">重新加载</button>
+                <button id="downloadBtn" class="btn btn-info">下载</button>
+                <button id="createBtn" class="btn btn-success" th:if="${!fileExists}">创建文件</button>
+                <button id="deleteBtn" class="btn btn-danger" th:if="${fileExists}">删除文件</button>
+            </div>
+            <div class="editor-status">
+                <span id="lineCount">行数: 0</span> |
+                <span id="charCount">字符: 0</span>
+            </div>
+        </div>
+
+        <textarea id="luaCode" style="display: none;" th:text="${scriptContent}"></textarea>
+    </div>
+
+    <div class="upload-area" id="uploadArea">
+        <h4>上传Lua脚本文件</h4>
+        <p>拖放文件到这里，或点击选择文件</p>
+        <input type="file" id="fileInput" accept=".lua" style="display: none;">
+        <button class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">选择文件</button>
+    </div>
+
+    <div class="help-section">
+        <h3>Lua脚本API参考</h3>
+        <div class="help-content">
+            <h4>服务器控制:</h4>
+            <ul>
+                <li><code>server:startServer()</code> - 启动服务器</li>
+                <li><code>server:stopServer()</code> - 停止服务器</li>
+                <li><code>server:reloadUsers()</code> - 重新加载用户</li>
+                <li><code>server:reloadTokens()</code> - 重新加载令牌</li>
+                <li><code>server:reloadActivationCodes()</code> - 重新加载激活码</li>
+                <li><code>server:banIp(ip)</code> - 封禁IP地址</li>
+            </ul>
+
+            <h4>状态检查:</h4>
+            <ul>
+                <li><code>server:isServerRunning()</code> - 检查服务器是否运行</li>
+                <li><code>server:isWebManagerRunning()</code> - 检查Web管理是否运行</li>
+                <li><code>server:getUserCount()</code> - 获取用户数量</li>
+                <li><code>server:getTokenCount()</code> - 获取令牌数量</li>
+                <li><code>server:getActivationCodeCount()</code> - 获取激活码数量</li>
+            </ul>
+
+            <h4>工具函数:</h4>
+            <ul>
+                <li><code>util:sleep(ms)</code> - 休眠指定毫秒</li>
+                <li><code>util:getTimestamp()</code> - 获取当前时间戳</li>
+                <li><code>log(message)</code> - 记录日志到服务器</li>
+            </ul>
+
+            <h4>事件函数:</h4>
+            <ul>
+                <li><code>onStart()</code> - 脚本启动时调用</li>
+                <li><code>onStop()</code> - 脚本停止时调用</li>
+                <li><code>onReload()</code> - 脚本重载时调用</li>
+                <li><code>onSchedule()</code> - 每30秒调用一次</li>
+                <li><code>onUserLogin(username, ip)</code> - 用户登录时调用</li>
+                <li><code>onUserRegister(username, ip)</code> - 用户注册时调用</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/lua/lua.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/search.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/searchcursor.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/dialog/dialog.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/jump-to-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/search/matchesonscrollbar.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/keymap/sublime.min.js"></script>
+
+<script>
+    const editor = CodeMirror.fromTextArea(document.getElementById('luaCode'), {
+        mode: 'lua',
+        theme: 'monokai',
+        lineNumbers: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        indentUnit: 4,
+        indentWithTabs: false,
+        electricChars: true,
+        keyMap: 'sublime',
+        extraKeys: {
+            'Ctrl-/': 'toggleComment',
+            'Ctrl-S': function(cm) { saveScript(); },
+            'Ctrl-F': 'find',
+            'Ctrl-G': 'jumpToLine',
+            'Ctrl-Q': function(cm) { cm.foldCode(cm.getCursor()); }
+        },
+        foldGutter: true,
+        gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter']
+    });
+
+    function updateStats() {
+        const lineCount = editor.lineCount();
+        const charCount = editor.getValue().length;
+        document.getElementById('lineCount').textContent = `行数: ${lineCount}`;
+        document.getElementById('charCount').textContent = `字符: ${charCount}`;
+    }
+
+    editor.on('change', updateStats);
+    updateStats();
+
+    function showMessage(message, type) {
+        const messageArea = document.getElementById('messageArea');
+        messageArea.innerHTML = `<div class="message ${type}">${message}</div>`;
+        setTimeout(() => {
+            messageArea.innerHTML = '';
+        }, 5000);
+    }
+
+    async function saveScript() {
+        const content = editor.getValue();
+
+        try {
+            const response = await fetch('/server/lua-script/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `content=${encodeURIComponent(content)}`
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showMessage(result.message, 'success');
+                updateFileInfo();
+            } else {
+                showMessage(result.message, 'error');
+            }
+        } catch (error) {
+            showMessage('保存失败: ' + error.message, 'error');
+        }
+    }
+
+    async function reloadScript() {
+        try {
+            const response = await fetch('/server/lua-script/info');
+            const result = await response.json();
+
+            if (result.exists) {
+                editor.setValue(result.content);
+                showMessage('脚本重新加载成功', 'success');
+                updateStats();
+            } else {
+                showMessage('脚本文件不存在', 'warning');
+            }
+        } catch (error) {
+            showMessage('重新加载失败: ' + error.message, 'error');
+        }
+    }
+
+    async function createFile() {
+        try {
+            const response = await fetch('/server/lua-script/create', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                editor.setValue(result.content);
+                showMessage(result.message, 'success');
+                location.reload();
+            } else {
+                showMessage(result.message, 'error');
+            }
+        } catch (error) {
+            showMessage('创建失败: ' + error.message, 'error');
+        }
+    }
+
+    async function deleteFile() {
+        if (!confirm('确定要删除脚本文件吗？此操作不可撤销！')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/server/lua-script/delete', {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                showMessage(result.message, 'success');
+                location.reload();
+            } else {
+                showMessage(result.message, 'error');
+            }
+        } catch (error) {
+            showMessage('删除失败: ' + error.message, 'error');
+        }
+    }
+
+    function downloadFile() {
+        window.open('/server/lua-script/download', '_blank');
+    }
+
+    function updateFileInfo() {
+        fetch('/server/lua-script/info')
+            .then(response => response.json())
+            .then(result => {
+                console.log('文件信息已更新', result);
+            });
+    }
+
+    function handleFileUpload(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/server/lua-script/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                editor.setValue(result.content);
+                showMessage(result.message, 'success');
+                updateStats();
+            } else {
+                showMessage(result.message, 'error');
+            }
+        })
+        .catch(error => {
+            showMessage('上传失败: ' + error.message, 'error');
+        });
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', saveScript);
+    document.getElementById('reloadBtn').addEventListener('click', reloadScript);
+    document.getElementById('downloadBtn').addEventListener('click', downloadFile);
+    document.getElementById('createBtn')?.addEventListener('click', createFile);
+    document.getElementById('deleteBtn')?.addEventListener('click', deleteFile);
+
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileUpload(e.target.files[0]);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateStats();
+    });
+</script>
+</body>
+</html>
